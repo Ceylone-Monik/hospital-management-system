@@ -520,3 +520,23 @@ body::before {
     font-size: 13px;
     margin-top: 10px;
 }
+/* Style the dropdown itself */
+select {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: white !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    cursor: pointer;
+}
+
+/* Style the popup list (the part circled in your image) */
+select option {
+    background-color: #1a1a2e; /* Match your sidebar/card dark color */
+    color: white;
+    padding: 10px;
+}
+
+/* Fix for some browsers (like Chrome/Edge) to prevent white flash */
+select:focus {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    outline: none;
+}
