@@ -15,16 +15,14 @@ $stmt = $pdo->prepare("SELECT users.full_name, doctor_details.specialization FRO
 $stmt->execute([$userId]);
 $doctor = $stmt->fetch();
 
-// 3. HANDLE REPORT SAVING (INSERT OR UPDATE)
+// 3. HANDLE REPORT SAVING
 if (isset($_POST['save_report'])) {
     try {
         if (!empty($_POST['report_id'])) {
-            // Update Logic
             $sql = "UPDATE medical_reports SET symptoms=?, diagnosis=?, vitals=?, prescription=?, remarks=? WHERE report_id=?";
             $stmt = $pdo->prepare($sql);
             $stmt->execute([$_POST['symptoms'], $_POST['diagnosis'], $_POST['vitals'], $_POST['prescription'], $_POST['remarks'], $_POST['report_id']]);
         } else {
-            // Insert Logic
             $sql = "INSERT INTO medical_reports (patient_id, doctor_id, symptoms, diagnosis, vitals, prescription, remarks) VALUES (?, ?, ?, ?, ?, ?, ?)";
             $stmt = $pdo->prepare($sql);
             $stmt->execute([$_POST['p_id'], $userId, $_POST['symptoms'], $_POST['diagnosis'], $_POST['vitals'], $_POST['prescription'], $_POST['remarks']]);
@@ -34,10 +32,10 @@ if (isset($_POST['save_report'])) {
     } catch (Exception $e) { $error = $e->getMessage(); }
 }
 
-// 4. FETCH PATIENTS & REPORTS
+// 4. FETCH DATA
 $all_patients = $pdo->query("SELECT * FROM patients ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
 
-$stmt_reports = $pdo->prepare("SELECT medical_reports.*, patients.full_name, patients.nic FROM medical_reports JOIN patients ON medical_reports.patient_id = patients.id WHERE medical_reports.doctor_id = ? ORDER BY created_at DESC");
+$stmt_reports = $pdo->prepare("SELECT medical_reports.*, patients.full_name, patients.nic, patients.emergency_contact_name, patients.emergency_phone FROM medical_reports JOIN patients ON medical_reports.patient_id = patients.id WHERE medical_reports.doctor_id = ? ORDER BY created_at DESC");
 $stmt_reports->execute([$userId]);
 $reports = $stmt_reports->fetchAll(PDO::FETCH_ASSOC);
 ?>
@@ -53,15 +51,11 @@ $reports = $stmt_reports->fetchAll(PDO::FETCH_ASSOC);
         .section { display: none; }
         .section.active { display: block; }
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-card { background: rgba(30, 30, 45, 1); border: 1px solid rgba(0, 255, 150, 0.3); width: 95%; max-width: 750px; padding: 35px; border-radius: 20px; color: white; overflow-y: auto; max-height: 90vh; }
-        
-        /* Profile Grid */
+        .modal-card { background: rgba(30, 30, 45, 1); border: 1px solid rgba(0, 255, 150, 0.3); width: 95%; max-width: 750px; padding: 35px; border-radius: 24px; color: white; overflow-y: auto; max-height: 90vh; }
         .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
         .detail-item { border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
         .detail-item label { color: #00ff96; font-size: 11px; text-transform: uppercase; font-weight: 600; display: block; margin-bottom: 5px; }
         .guardian-box { grid-column: span 2; background: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); padding: 15px; border-radius: 12px; margin-top: 10px; }
-        
-        /* Form Inputs */
         .report-input { width: 100%; padding: 12px; margin-bottom: 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 8px; }
         textarea.report-input { height: 100px; resize: none; }
     </style>
@@ -90,7 +84,7 @@ $reports = $stmt_reports->fetchAll(PDO::FETCH_ASSOC);
         </div>
 
         <div id="home" class="section active">
-            <div class="card"><h3>Welcome, Dr. <?php echo $doctor['full_name']; ?></h3><p>Access patient records and medical histories via the sidebar.</p></div>
+            <div class="card"><h3>Welcome, Dr. <?php echo $doctor['full_name']; ?></h3><p>Manage patients and reports using the menu.</p></div>
         </div>
 
         <div id="patients" class="section">
@@ -104,7 +98,7 @@ $reports = $stmt_reports->fetchAll(PDO::FETCH_ASSOC);
                             <td><?php echo htmlspecialchars($p['nic']); ?></td>
                             <td><?php echo htmlspecialchars($p['phone']); ?></td>
                             <td style="display:flex; gap:10px;">
-                                <button class="btn" style="background:#00ff96; color:#1a1a2e;" onclick='openProfile(<?php echo json_encode($p); ?>)'>VIEW</button>
+                                <button class="btn" style="background:#00ff96; color:#1a1a2e;" onclick='openProfile(<?php echo json_encode($p); ?>)'>VIEW DETAILS</button>
                                 <button class="btn" style="background:#ffa502;" onclick='openReportForm(<?php echo json_encode($p); ?>)'>ADD REPORT</button>
                             </td>
                         </tr>
@@ -153,19 +147,24 @@ $reports = $stmt_reports->fetchAll(PDO::FETCH_ASSOC);
                 <div class="detail-item" style="grid-column: span 2;"><label>Medical Allergies</label><span id="m_allergies"></span></div>
                 <div id="m_guardian_box" class="guardian-box" style="display:none;">
                     <h4 style="color:#ffa502; margin:0 0 10px 0;">Guardian Details</h4>
-                    <span id="m_g_name"></span> (<span id="m_g_rel"></span>) - NIC: <span id="m_g_nic"></span>
+                    <span id="m_g_name"></span> (<span id="m_g_rel"></span>)
                 </div>
             </div>
         </div>
 
         <div id="report_view_area" style="display:none; margin-top:20px;">
-            <div class="detail-grid">
+            <div class="detail-grid" style="border-top: 1px dashed #00ff96; padding-top: 20px;">
                 <div class="detail-item" style="grid-column: span 2;"><label>Diagnosis</label><span id="v_diag"></span></div>
                 <div class="detail-item"><label>Vitals</label><span id="v_vitals"></span></div>
                 <div class="detail-item"><label>Symptoms</label><span id="v_symp"></span></div>
                 <div class="detail-item" style="grid-column: span 2;"><label>Prescription</label><span id="v_pres"></span></div>
                 <div class="detail-item" style="grid-column: span 2;"><label>Doctor Remarks</label><span id="v_rem"></span></div>
             </div>
+        </div>
+
+        <div id="emergency_row" style="display:none; margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+            <label style="color:#00ff96; font-size:11px; text-transform:uppercase; font-weight:600;">Emergency Contact (Next of Kin)</label>
+            <p style="margin:5px 0 0 0;"><span id="m_em_name" style="font-weight:600;"></span> <span id="m_em_phone" style="color:#aaa; margin-left:10px;"></span></p>
         </div>
 
         <div id="form_area" style="display:none; margin-top:20px;">
@@ -179,7 +178,7 @@ $reports = $stmt_reports->fetchAll(PDO::FETCH_ASSOC);
                 <textarea name="diagnosis" id="f_diag" class="report-input" placeholder="Diagnosis"></textarea>
                 <textarea name="prescription" id="f_pres" class="report-input" placeholder="Prescription"></textarea>
                 <textarea name="remarks" id="f_rem" class="report-input" placeholder="Remarks"></textarea>
-                <button type="submit" name="save_report" class="btn" style="width:100%; background:#00ff96; color:#1a1a2e; font-weight:bold;">SAVE MEDICAL REPORT</button>
+                <button type="submit" name="save_report" class="btn" style="width:100%; background:#00ff96; color:#1a1a2e; font-weight:bold;">SAVE REPORT</button>
             </form>
         </div>
     </div>
@@ -195,34 +194,39 @@ $reports = $stmt_reports->fetchAll(PDO::FETCH_ASSOC);
 
     function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
-    // Logic for Full Patient Profile (Patients Tab)
-    function openProfile(p) {
-        document.getElementById('modal').style.display = 'flex';
-        document.getElementById('modal_title').innerText = "Patient: " + p.full_name;
-        document.getElementById('profile_view_area').style.display = 'block';
-        document.getElementById('report_view_area').style.display = 'none';
-        document.getElementById('form_area').style.display = 'none';
-        
+    // Helper to fill basic patient data
+    function fillBasicInfo(p) {
         document.getElementById('m_dob').innerText = p.dob;
         document.getElementById('m_gender').innerText = p.gender;
         document.getElementById('m_blood').innerText = p.blood_group;
         document.getElementById('m_nic').innerText = p.nic;
         document.getElementById('m_allergies').innerText = p.allergies || "None";
+        document.getElementById('m_em_name').innerText = p.emergency_contact_name || "N/A";
+        document.getElementById('m_em_phone').innerText = p.emergency_phone ? "(" + p.emergency_phone + ")" : "";
         
         const gBox = document.getElementById('m_guardian_box');
         if(p.guardian_name) {
             gBox.style.display = 'block';
             document.getElementById('m_g_name').innerText = p.guardian_name;
             document.getElementById('m_g_rel').innerText = p.guardian_relation;
-            document.getElementById('m_g_nic').innerText = p.guardian_nic;
         } else { gBox.style.display = 'none'; }
     }
 
-    // Logic for Adding a New Report (Patients Tab)
+    function openProfile(p) {
+        document.getElementById('modal').style.display = 'flex';
+        document.getElementById('modal_title').innerText = "Patient Profile: " + p.full_name;
+        document.getElementById('profile_view_area').style.display = 'block';
+        document.getElementById('emergency_row').style.display = 'block';
+        document.getElementById('report_view_area').style.display = 'none';
+        document.getElementById('form_area').style.display = 'none';
+        fillBasicInfo(p);
+    }
+
     function openReportForm(p) {
         document.getElementById('modal').style.display = 'flex';
         document.getElementById('modal_title').innerText = "New Report: " + p.full_name;
         document.getElementById('profile_view_area').style.display = 'none';
+        document.getElementById('emergency_row').style.display = 'none';
         document.getElementById('report_view_area').style.display = 'none';
         document.getElementById('form_area').style.display = 'block';
         document.getElementById('f_p_id').value = p.id;
@@ -230,26 +234,28 @@ $reports = $stmt_reports->fetchAll(PDO::FETCH_ASSOC);
         document.querySelector('form').reset();
     }
 
-    // Logic for Viewing a Report (Reports Tab)
     function viewReport(r) {
         document.getElementById('modal').style.display = 'flex';
         document.getElementById('modal_title').innerText = "Medical Record: " + r.full_name;
         document.getElementById('profile_view_area').style.display = 'none';
-        document.getElementById('form_area').style.display = 'none';
+        document.getElementById('emergency_row').style.display = 'block';
         document.getElementById('report_view_area').style.display = 'block';
+        document.getElementById('form_area').style.display = 'none';
         
         document.getElementById('v_diag').innerText = r.diagnosis;
         document.getElementById('v_vitals').innerText = r.vitals;
         document.getElementById('v_symp').innerText = r.symptoms;
         document.getElementById('v_pres').innerText = r.prescription;
         document.getElementById('v_rem').innerText = r.remarks;
+        document.getElementById('m_em_name').innerText = r.emergency_contact_name || "N/A";
+        document.getElementById('m_em_phone').innerText = r.emergency_phone ? "(" + r.emergency_phone + ")" : "";
     }
 
-    // Logic for Updating a Report (Reports Tab)
     function editReport(r) {
         document.getElementById('modal').style.display = 'flex';
         document.getElementById('modal_title').innerText = "Edit Report: " + r.full_name;
         document.getElementById('profile_view_area').style.display = 'none';
+        document.getElementById('emergency_row').style.display = 'none';
         document.getElementById('report_view_area').style.display = 'none';
         document.getElementById('form_area').style.display = 'block';
         
