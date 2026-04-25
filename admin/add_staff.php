@@ -200,8 +200,7 @@ if (isset($_POST['register_staff'])) {
 
         <div class="nav-menu">
             <div class="nav-item active" onclick="window.location.href='dashboard.php'">📊 Staff Management</div>
-            <div class="nav-item" onclick="alert('Coming Soon')">📋 Patient Records</div>
-            <div class="nav-item" onclick="alert('Coming Soon')">📈 Reports</div>
+            
         </div>
 
         <div class="logout-section">

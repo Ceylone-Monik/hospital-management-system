@@ -55,6 +55,11 @@ $all_reports = $pdo->query($report_query)->fetchAll(PDO::FETCH_ASSOC);
         .modal-card { background: rgba(30, 30, 45, 1); border: 1px solid rgba(0, 255, 150, 0.3); width: 95%; max-width: 600px; padding: 30px; border-radius: 20px; color: white; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
         .detail-item { margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; }
         .detail-item label { color: #00ff96; font-size: 11px; text-transform: uppercase; display: block; }
+
+        /* Pagination Style */
+        .pagination { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+        .pagination a { padding: 8px 15px; background: rgba(255,255,255,0.1); color: white; text-decoration: none; border-radius: 5px; border: 1px solid rgba(0,255,150,0.3); }
+        .pagination a.active { background: #00ff96; color: #1a1a2e; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -98,7 +103,10 @@ $all_reports = $pdo->query($report_query)->fetchAll(PDO::FETCH_ASSOC);
             </div>
 
             <div class="users-table-container">
-                <div class="table-header"><h3>👥 Registered Staff Members</h3></div>
+                <div class="table-header">
+                    <h3>👥 Registered Staff Members</h3>
+                    <div class="user-count">Page <?php echo $current_page; ?> of <?php echo $total_pages; ?></div>
+                </div>
                 <table class="users-table">
                     <thead><tr><th>ID</th><th>Full Name</th><th>Email</th><th>Role</th></tr></thead>
                     <tbody>
@@ -112,6 +120,16 @@ $all_reports = $pdo->query($report_query)->fetchAll(PDO::FETCH_ASSOC);
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+
+                <?php if ($total_pages > 1): ?>
+                <div class="pagination">
+                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                        <a href="?page=<?php echo $i; ?>" class="<?php echo ($current_page == $i) ? 'active' : ''; ?>">
+                            <?php echo $i; ?>
+                        </a>
+                    <?php endfor; ?>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
 
