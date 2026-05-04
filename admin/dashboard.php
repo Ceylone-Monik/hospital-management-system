@@ -14,6 +14,9 @@ $users_per_page = 10;
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($current_page - 1) * $users_per_page;
 
+// Get active tab from URL or default to 'dashboard'
+$active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'dashboard';
+
 $total_staff_stmt = $pdo->query("SELECT COUNT(*) as total FROM users");
 $total_users = $total_staff_stmt->fetch(PDO::FETCH_ASSOC)['total'];
 $total_pages = ceil($total_users / $users_per_page);
@@ -22,10 +25,24 @@ $staff_query = "SELECT id, full_name, email, role FROM users LIMIT " . (int)$use
 $users = $pdo->query($staff_query)->fetchAll(PDO::FETCH_ASSOC);
 
 
-// --- PATIENT LOGIC ---
+// --- PATIENT LOGIC (Pagination) ---
+$patients_per_page = 10;
+$patient_page = isset($_GET['patient_page']) ? (int)$_GET['patient_page'] : 1;
+$patient_offset = ($patient_page - 1) * $patients_per_page;
+
 $p_total_stmt = $pdo->query("SELECT COUNT(*) as total FROM patients");
 $total_patients = $p_total_stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
-$recent_patients = $pdo->query("SELECT id, full_name, nic, phone, created_at FROM patients ORDER BY created_at DESC LIMIT 5")->fetchAll(PDO::FETCH_ASSOC);
+$total_patient_pages = ceil($total_patients / $patients_per_page);
+
+$patients_query = "SELECT id, full_name, nic, phone, created_at FROM patients ORDER BY created_at DESC LIMIT " . (int)$patients_per_page . " OFFSET " . (int)$patient_offset;
+$recent_patients = $pdo->query($patients_query)->fetchAll(PDO::FETCH_ASSOC);
+
+// --- STATISTICS COUNTS ---
+$doctor_count_stmt = $pdo->query("SELECT COUNT(*) as total FROM users WHERE role = 'Doctor'");
+$total_doctors = $doctor_count_stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+
+$nurse_count_stmt = $pdo->query("SELECT COUNT(*) as total FROM users WHERE role = 'Nurse'");
+$total_nurses = $nurse_count_stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
 
 
 // --- REPORTS LOGIC (New) ---
@@ -73,7 +90,10 @@ $all_reports = $pdo->query($report_query)->fetchAll(PDO::FETCH_ASSOC);
         </div>
 
         <div class="nav-menu">
-            <div class="nav-item active" id="btn-staff" onclick="showSection('staff')">
+            <div class="nav-item active" id="btn-dashboard" onclick="showSection('dashboard')">
+                <i class="fas fa-home"></i> Admin Dashboard
+            </div>
+            <div class="nav-item" id="btn-staff" onclick="showSection('staff')">
                 <i class="fas fa-users-cog"></i> Staff Management
             </div>
             <div class="nav-item" id="btn-patients" onclick="showSection('patients')">
@@ -95,7 +115,40 @@ $all_reports = $pdo->query($report_query)->fetchAll(PDO::FETCH_ASSOC);
             <p>Current Date: <?php echo date('F d, Y'); ?></p>
         </div>
 
-        <div id="staff" class="section active">
+        <!-- Dashboard Section -->
+        <div id="dashboard" class="section active">
+            <div class="dashboard-welcome">
+                <h2>Welcome to Admin Dashboard</h2>
+                <p>Here's an overview of your hospital's current statistics.</p>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-icon doctor-icon">👨‍⚕️</div>
+                    <div class="stat-info">
+                        <h3><?php echo $total_doctors; ?></h3>
+                        <p>Doctors</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon nurse-icon">👩‍⚕️</div>
+                    <div class="stat-info">
+                        <h3><?php echo $total_nurses; ?></h3>
+                        <p>Nurses</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon patient-icon">🏥</div>
+                    <div class="stat-info">
+                        <h3><?php echo $total_patients; ?></h3>
+                        <p>Patients</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="staff" class="section">
             <div class="card">
                 <h3>📋 Staff Management</h3>
                 <p>Register new Doctors and Nurses. You currently have <strong><?php echo $total_users; ?></strong> staff members.</p>
@@ -124,7 +177,7 @@ $all_reports = $pdo->query($report_query)->fetchAll(PDO::FETCH_ASSOC);
                 <?php if ($total_pages > 1): ?>
                 <div class="pagination">
                     <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                        <a href="?page=<?php echo $i; ?>" class="<?php echo ($current_page == $i) ? 'active' : ''; ?>">
+                        <a href="?page=<?php echo $i; ?>&tab=staff" class="<?php echo ($current_page == $i) ? 'active' : ''; ?>">
                             <?php echo $i; ?>
                         </a>
                     <?php endfor; ?>
@@ -140,7 +193,10 @@ $all_reports = $pdo->query($report_query)->fetchAll(PDO::FETCH_ASSOC);
                 <a href="add_patient.php" class="btn">+ Add New Patient</a>
             </div>
             <div class="users-table-container">
-                <div class="table-header"><h3>📑 Recent Patient Admissions</h3></div>
+                <div class="table-header">
+                    <h3>📑 Patient Admissions</h3>
+                    <div class="user-count">Page <?php echo $patient_page; ?> of <?php echo $total_patient_pages; ?></div>
+                </div>
                 <table class="users-table">
                     <thead><tr><th>ID</th><th>Name</th><th>NIC</th><th>Phone</th><th>Date</th></tr></thead>
                     <tbody>
@@ -155,6 +211,16 @@ $all_reports = $pdo->query($report_query)->fetchAll(PDO::FETCH_ASSOC);
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+
+                <?php if ($total_patient_pages > 1): ?>
+                <div class="pagination">
+                    <?php for ($i = 1; $i <= $total_patient_pages; $i++): ?>
+                        <a href="?patient_page=<?php echo $i; ?>&tab=patients" class="<?php echo ($patient_page == $i) ? 'active' : ''; ?>">
+                            <?php echo $i; ?>
+                        </a>
+                    <?php endfor; ?>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -218,6 +284,13 @@ $all_reports = $pdo->query($report_query)->fetchAll(PDO::FETCH_ASSOC);
 </div>
 
 <script>
+    // Set active tab from URL parameter on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const activeTab = urlParams.get('tab') || 'dashboard';
+        showSection(activeTab);
+    });
+
     function showSection(sectionId) {
         const sections = document.querySelectorAll('.section');
         sections.forEach(section => section.classList.remove('active'));
